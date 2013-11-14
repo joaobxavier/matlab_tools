@@ -465,40 +465,25 @@ classdef TimeSeriesData
         end;
         
         % plot wavelength w2 over wavelength w2 Medians
-        % for sample s
-
+        % for sample s Kerry's code
         function h = plotW1OverW2Median(tsd, w1, w2, s)
 
             times = tsd.getTimes(w1);
-
             d1 = tsd.getData(w1, s);
-
             d2 = tsd.getData(w2, s);
-
             Ov = d1./d2;
-
             MedOv = median(Ov, 2);
-
             h = plot(times(1,1:length(d1)), MedOv, '-', 'LineWidth', 2);
-
             xlabel('Time[h]');
-% 
+
 %             ylabel([tsd.wavelenghtData(w1).name '/'...
-% 
 %                 tsd.wavelenghtData(w2).name]);
+%            ylabel(tsd.wavelenghtData(w1).name);
 
-            %ylabel(tsd.wavelenghtData(w1).name);
-
-        end;
-
-        
-
-        
+        end; 
 
         % same as plotW1OverW2Median but works with array
-
-        % of samples
-
+        % of samples Kerry's code
         function plotW1OverW2MedianMany(tsd, w1, w2, samples)
 
             % construct a colormap
@@ -506,15 +491,10 @@ classdef TimeSeriesData
             cmap = jet(length(samples));
 
             for i = 1:length(samples)
-
                 hold on;
-
                 h = tsd.plotW1OverW2Median(w1, w2, samples(i));
-
                 set(h, 'Color', cmap(i, :));
-
                 labels{end+1} = tsd.samples(samples(i)).name;
-
             end;
 
             legend(labels, 'Location', 'Best');
@@ -872,17 +852,17 @@ classdef TimeSeriesData
         function plotGrowthPhase (tsd, wavelength, sampleNumber, timeRangeMax)
             % Construct a colormap for the 3 phases
             cmap = jet(12); %3 phases * 3 strains - DONT COMPARE WITHIN STRAINS 8/1/13 TO DO - FIX THIS
-%             strainNum = ceil(sampleNumber/4);
+            % strainNum = ceil(sampleNumber/4);
             
             % Setup figure to plot d(wavelength data)/dt, where dt = 10 min
             % = 1/6 hrs
             % Use phaseTimes (a 1x3 matrix) to determine where to split the
             % wavelength data into 4 segments (3 phases + lag phase). Plot each of the 3 segments
             
-            % Hardcoding phaseTimes 
+            % Hardcoding phaseTimes if needed
             % First element is where phase 1 starts, second element is where phase 2 starts
-%             phaseTimes = [14.5 21.75 26.25]; %8/1/13 - based on Hilary's growth curve with glucose and cbra mutant 7/29/13
-%             phaseTimes = [12, 18];
+            % phaseTimes = [14.5 21.75 26.25]; %8/1/13 - based on Hilary's growth curve with glucose and cbra mutant 7/29/13
+            % phaseTimes = [12, 18];
 
             phaseTimes = tsd.getPhaseTimes;
             phaseTimes = phaseTimes(1,:);
@@ -890,7 +870,7 @@ classdef TimeSeriesData
             timeData = tsd.getTimes(wavelength);
             sampleData = tsd.getData(wavelength, sampleNumber);
             timeData = timeData(1:length(sampleData));
-            deltaT = (timeData(2)-timeData(1))*60;
+            deltaT = (timeData(2)-timeData(1))*60; %This is a slight approximation
             medianData = median(sampleData,2);
             filteredMedianData = tsd.filterData(medianData);
             logData = log(filteredMedianData);
@@ -899,42 +879,24 @@ classdef TimeSeriesData
             
             %preallocation of phaseMatrix
             phase = zeros(1,length(timeData));
-            numP1 = 0;
-            numP2 = 0;
-            numP3 = 0;
-            numNeg = 0;
             
             phase(timeData < timeRangeMax) = 3;
             phase(timeData < phaseTimes(3)) = 2;
             phase(timeData < phaseTimes(2)) = 1;
             phase(timeData < phaseTimes(1)) = 0;
-%             phase(timeData > phaseTimes(1)) = 1;
-%             phase(timeData > phaseTimes(2)) = 2;
-%             phase(phaseTimes(3) < timeRangeMax/60) = 3;
-
-%             numP1 = sum(timeData < phaseTimes(1));
-% 
-%             numP3 = sum(timeData > phaseTimes(3));
-%             numP2 = sum(timeData > phaseTimes(2)) - numP3;
-%             numP1 = sum(timeData > phaseTimes(1)) - numP2 - numP3;
-
-%             numP3 = sum(timeData < timeRangeMax/60);
-%             numP2 = sum(timeData < phaseTimes(3)) - numP3;
-%             numP1 = sum(timeData < phaseTimes(2)) - numP2 - numP3;
                         
             totalDataPts = nnz(phase);
             phase = phase(phase>0);
             
             %calculate the change in gfp
-            filteredMedianDData = zeros(1, totalDataPts);%zeros(1,length(filteredMedianData));
+            filteredMedianDData = zeros(1, totalDataPts);
             
             if wavelength == 1 
                 filteredMedianDData = diff(logData(1:totalDataPts))/deltaT;
             else 
                 filteredMedianDData = diff(filteredMedianData(1:totalDataPts))/deltaT;
             end
-                
-%             numNeg = sum(and((filteredMedianDData < 0)', phase(2:end) == 2));
+            
             phase = phase + rand(size(phase))*0.1;
             
             scatter(phase(2:end)', filteredMedianDData', 40, 'blue', 'LineWidth', 1.5)% 'MarkerEdgeColor', c)
@@ -972,28 +934,11 @@ classdef TimeSeriesData
             
             %preallocation of phaseMatrix
             phase = zeros(1,length(timeData));
-            numP1 = 0;
-            numP2 = 0;
-            numP3 = 0;
-            numNeg = 0;
             
             phase(timeData < timeRangeMax) = 3;
             phase(timeData < phaseTimes(3)) = 2;
             phase(timeData < phaseTimes(2)) = 1;
             phase(timeData < phaseTimes(1)) = 0;
-%             phase(timeData > phaseTimes(1)) = 1;
-%             phase(timeData > phaseTimes(2)) = 2;
-%             phase(phaseTimes(3) < timeRangeMax/60) = 3;
-
-%             numP1 = sum(timeData < phaseTimes(1));
-% 
-%             numP3 = sum(timeData > phaseTimes(3));
-%             numP2 = sum(timeData > phaseTimes(2)) - numP3;
-%             numP1 = sum(timeData > phaseTimes(1)) - numP2 - numP3;
-
-%             numP3 = sum(timeData < timeRangeMax/60);
-%             numP2 = sum(timeData < phaseTimes(3)) - numP3;
-%             numP1 = sum(timeData < phaseTimes(2)) - numP2 - numP3;
                         
             totalDataPts = nnz(phase);
             phase = phase(phase>0);
@@ -1006,22 +951,13 @@ classdef TimeSeriesData
             else 
                 filteredMedianDData = diff(filteredMedianData(1:totalDataPts))/deltaT;
             end
-                
-%             numNeg = sum(and((filteredMedianDData < 0)', phase(2:end) == 2));
+            
             phase = phase - rand(size(phase))*0.1;
             
             scatter(phase(2:end)', filteredMedianDData', 40, 'cyan', 'LineWidth', 1.5)% 'MarkerEdgeColor', c)
             xlabel('Phase')
             ylabel(strcat('d(',char(tsd.wavelenghtData(wavelength).name),')/dt'))
         end
-        
-%         % plot the time series of the median for a given sample
-%         function hddddd = plotMedian(tsd, wavelength, sampleNumber)
-%             times = tsd.getTimes(wavelength);
-%             data  = tsd.getData(wavelength, sampleNumber);
-%             h(1) = plot(times(1,1:length(data)), median(data, 2), 'k-');
-%             set(h(1), 'Linewidth', 3);
-%         end
         
 
         %Correct for autofluorescence in GFP Data for NON-LAGGED DATA
@@ -1050,16 +986,9 @@ classdef TimeSeriesData
         % USE FOR GFP DATA FOR LAGGED SAMPLES, creates new TSD instance
         function autoFluoroTSD = correctAutoFLag(tsd,autoFsamples,sampleNumbers)
             autoFluoroTSD = tsd;
-%             numSamples = length(sampleNumbers)+length(autoFsamples);
-%             allSamples = cat(2,autoFsamples, sampleNumbers);
             times = tsd.getTimes(2); %getTimes for GFP data
             
-%             cGfpMedian = zeros(length(timehours), length(sampleNumbers));
-%             cGfpInterp = zeros(length(tArray), length(sampleNumbers));
-            
-            
             for i = 1:length(autoFsamples)
-                
                 timehours = times(1:length(tsd.getData(2, autoFsamples(i)))); %timeArray of WT sample
                 tArray = times(1:length(tsd.getData(2, sampleNumbers(i)))); %timeArray of sample to be corrected
                 autoFluoroData = autoFluoroTSD.correctAutoFOneSample(tArray, timehours, autoFsamples(i), sampleNumbers(i)); %(i+length(autoFsamples)));
@@ -1078,11 +1007,6 @@ classdef TimeSeriesData
             GfpDataToCorrect = tsd.getData(2, sampleNumber); %This data is what needs correcting
             cGfpInterp = interp1(timehours, cGfpMedian, tArray)'; 
             
-%             %output
-%             size( cGfpMedian )
-%             size( GfpDataToCorrect )
-%             size( cGfpInterp )
-            
             %preallocation
             numWells = min(size(GfpDataToCorrect));
             autoFluoroData = zeros(length(GfpDataToCorrect),numWells);
@@ -1094,15 +1018,11 @@ classdef TimeSeriesData
         end
         
         function setLagTimes(tsd, lagTimes)
-            
             tsd.lagTimes = lagTimes;
-            
         end
         
         function lagTimes = getLagTimes(tsd)
-            
             lagTimes = tsd.lagTimes;
-            
         end
         
         function tsd = autoLag(tsd,wavelength,sampleNumbers)
@@ -1153,11 +1073,8 @@ classdef TimeSeriesData
         
         % Designate the lagged Data for a sample number
         function tsd = setData(tsd, wavelength, sampleNumber, data)
-%             'hi'
-%             size(tsd.samples(sampleNumber).wavelength(wavelength).data)
             tsd.samples(sampleNumber).wavelength(wavelength).data = [];
             tsd.samples(sampleNumber).wavelength(wavelength).data = data;
-%             size(tsd.samples(sampleNumber).wavelength(wavelength).data)
         end
         
 %         % get the matrix lagged data for a sample number
@@ -1180,48 +1097,30 @@ classdef TimeSeriesData
                 %Want to transform the matrix without eliminating data
                 currentData = tsd.getData(wavelength,sampleNumbers(i));
                 currentGfp = tsd.getData(2,sampleNumbers(i));
-                
-                %output
-%                 size(tsd.getData(wavelength,sampleNumbers(i)))
-%                 [wavelength, sampleNumbers(i), size(currentData(tau:end,:))]
-%                 size(currentData(tau:end,:))
 
                 %set the data to only the data >= the lag data
                 tsd = tsd.setData(wavelength, sampleNumbers(i),...
                     currentData(tau:end,:));
                 tsd = tsd.setData(2, sampleNumbers(i),...
                     currentGfp(tau:end,:)); %set the gfp data too
-                
-                
-                %output
-%                 size(tsd.getData(wavelength,sampleNumbers(i)))
-                
             end
+            
         end
         
         function tsd = onePointShift(tsd, sampleNumbers)
             for i = 1:length(sampleNumbers)
-                %figure out at what timepoint the threshold was reached
-                tau = 2*ones(1,length(sampleNumbers)); %convert to an index in the Times matrix...
+                %Create a matrix of starting indicies in the Times matrix
+                tau = 2*ones(1,length(sampleNumbers)); 
                 
                 %Want to transform the matrix without eliminating data
                 currentData = tsd.getData(1,sampleNumbers(i));
                 currentGfp = tsd.getData(2,sampleNumbers(i));
-                
-                %output
-%                 size(tsd.getData(wavelength,sampleNumbers(i)))
-%                 [wavelength, sampleNumbers(i), size(currentData(tau:end,:))]
-%                 size(currentData(tau:end,:))
 
                 %set the data to only the data >= the first point
                 tsd = tsd.setData(1, sampleNumbers(i),...
                     currentData(tau:end,:));
                 tsd = tsd.setData(2, sampleNumbers(i),...
                     currentGfp(tau:end,:)); %set the gfp data too
-                
-                
-                %output
-%                 size(tsd.getData(wavelength,sampleNumbers(i)))
                 
             end
         end
