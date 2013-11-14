@@ -438,7 +438,7 @@ classdef TimeSeriesData
         end
         
         % plot sample numbers provided in a vector with ranges
-        % and add legend JOAOS
+        % and add legend
         function plotManySamples(tsd, wavelength, sampleNumbers, rangeFlag)
             % construct a colormap
             labels = [];
@@ -556,18 +556,36 @@ classdef TimeSeriesData
             xlabel('time [h]');
         end;
         
-        %
-        function h = plotSpecificGrowthW1VsW2(tsd, w1, w2, s, thresholdW1)
+        function h = plotSpecificGrowthW1VsW2(tsd, w1, w2, s, thresholdW1, useMedian)
+            % default useMedian = 0
+            if nargin == 5
+                useMedian = 0;
+            end
             d1 = tsd.getData(w1, s);
-            time = tsd.getTimes(w1); 
-            d1 = TimeSeriesData.calculateSpecificRate(time(1:length(d1)), d1);
+            % take only the median of w1
+            if useMedian == 1
+                d1 = median(d1, 2);
+            end;
+            %
+            time = tsd.getTimes(w1);
+            d1 = TimeSeriesData.calculateSpecificRate(time, d1);
             d2 = TimeSeriesData.filterData(tsd.getData(w2, s));
-            % threshold for wavelength w1
+            % take only the median of w2
+            if useMedian == 1
+                d2 = median(d2, 2);
+            end
+            %
+            % threshold for wvelength w1
             d1Filterd = TimeSeriesData.filterData(tsd.getData(w1, s));
+            % take only the median of w1
+            if useMedian == 1
+                d1Filterd = median(d1Filterd, 2);
+            end
+            %
             d1(d1Filterd < thresholdW1) = [];
             d2(d1Filterd < thresholdW1) = [];
             d1Filterd(d1Filterd < thresholdW1) = [];
-            h = plot(d1(:), d2(:)./d1Filterd(:), '+');
+            h = plot(d1(:), d2(:)./d1Filterd(:), '.');
             ylabel(tsd.wavelenghtData(w2).name);
             % use second line to normalize gfp/od600
             %h = plot(d1(:), d2(:)./d1Filterd(:), '+');
@@ -578,18 +596,23 @@ classdef TimeSeriesData
         
         % plot sample numbers provided in a vector with ranges
         % and add legend
-        function plotSpecificGrowthW1VsW2Many(tsd, w1, w2, samples, thresholdW1)
+        function plotSpecificGrowthW1VsW2Many(tsd, w1, w2, samples, thresholdW1, useMedian)
+            % default useMedian = 0
+            if nargin == 5
+                useMedian = 0;
+            end
+            
             % construct a colormap
             labels = [];
             cmap = jet(length(samples));
             for i = 1:length(samples)
                 hold on;
-                h = tsd.plotSpecificGrowthW1VsW2(w1, w2, samples(i), thresholdW1);
+                h = tsd.plotSpecificGrowthW1VsW2(w1, w2, samples(i), thresholdW1, useMedian);
                 set(h, 'Color', cmap(i, :));
                 labels{end+1} = tsd.samples(samples(i)).name;
             end;
             legend(labels, 'Location', 'SouthEast');
-        end;
+        end
         
         
         % plot sample numbers provided in a vector with ranges
