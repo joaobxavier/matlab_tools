@@ -870,7 +870,7 @@ classdef TimeSeriesData
             timeData = tsd.getTimes(wavelength);
             sampleData = tsd.getData(wavelength, sampleNumber);
             timeData = timeData(1:length(sampleData));
-            deltaT = (timeData(2)-timeData(1))*60; %This is a slight approximation
+            deltaT = (timeData(2)-timeData(1)); %This is a slight approximation
             medianData = median(sampleData,2);
             filteredMedianData = tsd.filterData(medianData);
             logData = log(filteredMedianData);
@@ -897,7 +897,7 @@ classdef TimeSeriesData
                 filteredMedianDData = diff(filteredMedianData(1:totalDataPts))/deltaT;
             end
             
-            phase = phase + rand(size(phase))*0.1;
+            phase = phase + .05 + rand(size(phase))*0.1;
             
             scatter(phase(2:end)', filteredMedianDData', 40, 'blue', 'LineWidth', 1.5)% 'MarkerEdgeColor', c)
             xlabel('Phase')
@@ -925,7 +925,7 @@ classdef TimeSeriesData
             timeData = tsd.getTimes(wavelength);
             sampleData = tsd.getData(wavelength, sampleNumber);
             timeData = timeData(1:length(sampleData));
-            deltaT = (timeData(2)-timeData(1))*60;
+            deltaT = (timeData(2)-timeData(1));
             medianData = median(sampleData,2);
             filteredMedianData = tsd.filterData(medianData);
             logData = log(filteredMedianData);
@@ -952,7 +952,7 @@ classdef TimeSeriesData
                 filteredMedianDData = diff(filteredMedianData(1:totalDataPts))/deltaT;
             end
             
-            phase = phase - rand(size(phase))*0.1;
+            phase = phase - .05 - rand(size(phase))*0.1;
             
             scatter(phase(2:end)', filteredMedianDData', 40, 'cyan', 'LineWidth', 1.5)% 'MarkerEdgeColor', c)
             xlabel('Phase')
