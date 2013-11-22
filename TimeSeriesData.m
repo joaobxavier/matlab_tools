@@ -344,7 +344,7 @@ classdef TimeSeriesData
         function h = plotMedian(tsd, wavelength, sampleNumber)
             times = tsd.getTimes(wavelength);
             data  = tsd.getData(wavelength, sampleNumber);
-            h(1) = plot(times(1,1:length(data)), median(data, 2), 'b-');
+            h(1) = plot(times, median(data, 2), 'b-');
             set(h(1), 'Linewidth', 3);
         end
         
@@ -352,9 +352,9 @@ classdef TimeSeriesData
         function h = plotRangesAsLines(tsd, wavelength, sampleNumber)
             times = tsd.getTimes(wavelength);
             data  = tsd.getData(wavelength, sampleNumber);
-            h(1) = plot(times(1,1:length(data)), max(data, [], 2), 'k-');
+            h(1) = plot(times, max(data, [], 2), 'k-');
             hold on;
-            h(2) = plot(times(1,1:length(data)), min(data, [], 2), 'k-');
+            h(2) = plot(times, min(data, [], 2), 'k-');
             hold off;
         end
         
@@ -841,64 +841,46 @@ classdef TimeSeriesData
         
         %%%%%%%%%% Autofluorescence correction
         
-        %Correct for autofluorescence in GFP Data for NON-LAGGED DATA
-        function autoFluoroData = correctAutoFluoro(tsd, tArray, autoFsamples, sampleNumbers)
-            
-            numSamples = length(sampleNumbers)+length(autoFsamples);
-            allSamples = cat(2,autoFsamples, sampleNumbers);
-            timehours = tsd.getTimes(2); %getTimes for GFP data
-            %tArray = 2:0.2:45;
-            
-            cGfpMedian = zeros(length(timehours), 12);
-            cGfpInterp = zeros(length(tArray), 12);
-            
-            
-            for i = 1:numSamples
-                
-                cGfpMedian(:, i) = median(tsd.getData(2, allSamples(i)), 2);
-                cGfpInterp(:, i) = interp1(timehours, cGfpMedian(:, allSamples(i)), tArray);
-                
-            end
-            
-            autoFluoroData = cGfpInterp(:, sampleNumbers)-cGfpInterp(:, autoFsamples);
-            
+        
+        
+        % do blank correction but take as correction the same line in
+        % the blank sample rather than median over entire blak replicates
+        % This function has two ways to be used used.
+        % If the argument 'samples' is not supplied, then the function
+        % preforms blank correction for all the samples.
+        % If 'samples' is supplied as a vector of sample numbers, then the
+        % correction is carried out only for the samples in the array.
+        function tsd = performAutoCorrection(tsd, autoSample, sample, w)
+            % get the blankData
+            autoData = tsd.getData(w, autoSample);
+            % get median accross replicates
+            autoData = median(autoData, 2);
+            % subtract that from all data
+            % get the data
+            data =  tsd.samples(sample).wavelength(w).data;
+            for i = 1:size(data, 2)
+                data(:, i) =  data(:, i) - autoData;
+            end;
+            % rewrite the variable
+            tsd.samples(sample).wavelength(w).data = data;
+            tsd = tsd.updateSampleData;
         end
         
-        % USE FOR GFP DATA FOR LAGGED SAMPLES, creates new TSD instance
-        function autoFluoroTSD = correctAutoFLag(tsd,autoFsamples,sampleNumbers)
-            autoFluoroTSD = tsd;
-            times = tsd.getTimes(2); %getTimes for GFP data
-            
-            for i = 1:length(autoFsamples)
-                timehours = times(1:length(tsd.getData(2, autoFsamples(i)))); %timeArray of WT sample
-                tArray = times(1:length(tsd.getData(2, sampleNumbers(i)))); %timeArray of sample to be corrected
-                autoFluoroData = autoFluoroTSD.correctAutoFOneSample(tArray, timehours, autoFsamples(i), sampleNumbers(i)); %(i+length(autoFsamples)));
-                autoFluoroTSD = autoFluoroTSD.setData(2, sampleNumbers(i), autoFluoroData);
+        
+        % runs performAutoCorrection for many samples
+        % length of "samples"must be multiple of length of "autoSamples"
+        function tsd = performAutoCorrectionManySamples(tsd, autoSamples, samples, w)
+            if mod(length(samples), length(autoSamples)) ~= 0
+                error('length of "samples" must be multiple of length of "autoSamples"');
             end
-            
-            
-            
+            for i = 1:length(samples)
+                tsd = tsd.performAutoCorrection(autoSamples(mod(i-1, length(autoSamples))+1),...
+                    samples(i), w);
+            end
         end
         
-        % USE FOR GFP WITH LAGGED SAMPLES
-        function autoFluoroData = correctAutoFOneSample(tsd, tArray, timehours, autoFsample, sampleNumber)
-            cGfpInterp = zeros(length(tArray),1);
-            cGfpMedian = zeros(length(tArray),1);
-            
-            cGfpMedian = median(tsd.getData(2, autoFsample), 2); %This is the WT data
-            GfpDataToCorrect = tsd.getData(2, sampleNumber); %This data is what needs correcting
-            cGfpInterp = interp1(timehours, cGfpMedian, tArray)';
-            
-            %preallocation
-            numWells = min(size(GfpDataToCorrect));
-            autoFluoroData = zeros(length(GfpDataToCorrect),numWells);
-            
-            for i = 1:numWells
-                autoFluoroData(:,i) = (GfpDataToCorrect(:,i) - cGfpInterp)';
-            end
-            
-        end
         
+
         %%%%%%%%%% Lag correction
         
         
@@ -910,19 +892,27 @@ classdef TimeSeriesData
             lagTimes = tsd.lagTimes;
         end
         
-        function tsd = autoLag(tsd,wavelength,sampleNumbers)
-            
-            %Step 1 - find the first time each of the median samples comes
-            %above a threshold .01 (if wavelength ==1) or threshold xx if gfp
-            lag = tsd.computeLag(wavelength,sampleNumbers);
-            %Step 2 - timeshift all curves to the earliest timet he median
-            %samples go above their respective threshold, i.e. compute the
-            %lag between each of the samples and do a lag shift.
-            tsd = tsd.lagShift(wavelength,sampleNumbers,lag);
-            
-        end
         
-        function lag = computeLag(tsd,wavelength,sampleNumbers)
+        % correct lag phase
+        %Step 1 - find the first time each of the median samples comes
+        %above a threshold .01
+        %Step 2 - move all curves in time to the earliest time the median
+        %samples go above their respective threshold, i.e. compute the
+        %lag between each of the samples and do a lag shift.
+        function tsd = autoLag(tsd, sampleNumbers, threshold)
+            if nargin < 3
+                threshold = 0.01; %this works for both od and gfp since gfp is usually very high
+            end
+            % calcute lag
+            lagArray = tsd.computeLag(1, sampleNumbers, threshold);
+            % shift data
+            for i = 1:length(sampleNumbers)
+                tsd = tsd.moveInTime(sampleNumbers(i), lagArray(2, i));
+            end
+        end
+
+        
+        function lag = computeLag(tsd,wavelength,sampleNumbers, threshold)
             % structure of output matrix lag =
             % [sample_1 od, sample2 od, ..., sample_n od]
             % [sample_1 t , sample2 t , ..., sample_n t ]
@@ -931,28 +921,18 @@ classdef TimeSeriesData
             %Preallocation and getting the time data - bases preallocation
             %size on the size of the data of the first dataset.
             times = tsd.getTimes(wavelength);
-            medianData = zeros(length(tsd.getData(1,1)),length(sampleNumbers));
             lag = zeros(3,length(sampleNumbers));
             
-            threshold = 0.01; %this works for both od and gfp since gfp is usually very high
-            %Compute the lag matrix
             for i = 1:length(sampleNumbers)
-                medianData(:,i) = median(tsd.getData(1,sampleNumbers(i)),2);
+                medianData = median(tsd.getData(1,sampleNumbers(i)),2);
+                medianData(1) = 0; 
+                validPoints = find(medianData > threshold);   
+                
+                lag(1,i) = medianData(validPoints(1));
+                lag(2,i) = times(validPoints(1));
+                lag(3,i) = validPoints(1); %track the index
+
             end
-            
-            for k = 1:length(sampleNumbers)
-                for j = 1:length(times)
-                    if medianData(j,k)>threshold
-                        lag(1,k) = medianData(j,k);
-                        lag(2,k) = times(j);
-                        lag(3,k) = j; %track the index
-                        break
-                    end
-                end
-            end
-            %             lag(3,:)
-            %             tsd.setLagTimes = lag(3,:);
-            
         end
         
         
@@ -961,49 +941,7 @@ classdef TimeSeriesData
             tsd.samples(sampleNumber).wavelength(wavelength).data = [];
             tsd.samples(sampleNumber).wavelength(wavelength).data = data;
         end
-        
-        function tsd = lagShift(tsd,wavelength,sampleNumbers,lag)
-            % Output: an instance of TimeSeriesData with shifted datasets
-            % Output2: SHIFT THE GFP DATA ACCORDING TO OD DATA
-            
-            %If the lag is >0 [should always be true], the data
-            %needs to be shifted backwards, i.e. remove all data at times
-            %less than the time where the threshold was reached
-            
-            for i = 1:length(sampleNumbers)
-                %figure out at what timepoint the threshold was reached
-                tau = lag(3,i); %convert to an index in the Times matrix...
-                
-                %Want to transform the matrix without eliminating data
-                currentData = tsd.getData(wavelength,sampleNumbers(i));
-                currentGfp = tsd.getData(2,sampleNumbers(i));
-                
-                %set the data to only the data >= the lag data
-                tsd = tsd.setData(wavelength, sampleNumbers(i),...
-                    currentData(tau:end,:));
-                tsd = tsd.setData(2, sampleNumbers(i),...
-                    currentGfp(tau:end,:)); %set the gfp data too
-            end
-            
-        end
-        
-        function tsd = onePointShift(tsd, sampleNumbers)
-            for i = 1:length(sampleNumbers)
-                %Create a matrix of starting indicies in the Times matrix
-                tau = 2*ones(1,length(sampleNumbers));
-                
-                %Want to transform the matrix without eliminating data
-                currentData = tsd.getData(1,sampleNumbers(i));
-                currentGfp = tsd.getData(2,sampleNumbers(i));
-                
-                %set the data to only the data >= the first point
-                tsd = tsd.setData(1, sampleNumbers(i),...
-                    currentData(tau:end,:));
-                tsd = tsd.setData(2, sampleNumbers(i),...
-                    currentGfp(tau:end,:)); %set the gfp data too
-                
-            end
-        end
+
         
     end % methods
     
