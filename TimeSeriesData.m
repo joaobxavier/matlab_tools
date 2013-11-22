@@ -1,6 +1,9 @@
 classdef TimeSeriesData
     % defines objects that read a Tecan file and interprete the
     % time series data
+    %
+    % DON'T FORGET TO UPDATE THE VERSION TAG
+    % Updated Novrmber 22 by Joao and Hilary
     
     % properties
     properties (SetAccess = protected)
@@ -9,13 +12,19 @@ classdef TimeSeriesData
         wavelenghtData = [];
         samples = [];
         map = [];
+        
+        % phaseTimes is a matrix of 3xn where n is the number of samples
         phaseTimes = [];
+        % phaseTimes is a matrix of 1xn where n is the number of samples
         lagTimes = [];
     end
-
+    
     
     % Method definisions
     methods
+        
+        %%%%%%%%%% setup TimeSeriesData object
+        
         % constructor: creates a new instance of time series
         % reads all data from the matrices
         function tsd = TimeSeriesData(filename)
@@ -137,6 +146,8 @@ classdef TimeSeriesData
         end
         
         
+        %%%%%%%%%% GET DATA from TimeSeriesData object
+        
         % get a plate data for a given cycle number
         function data = getPlateMatrix(tsd, wavelength, cycle, iOrders)
             data = tsd.wavelenghtData(wavelength).data(cycle, :);
@@ -145,7 +156,9 @@ classdef TimeSeriesData
             end
             data = reshape(data, 8, 12);
         end
- 
+        
+        % get a plate data for a given cycle number
+        % get only the center 6x10matrix. To be used with water around.
         function data = getPlateMatrixSmall(tsd, wavelength, cycle, iOrders)
             data = tsd.wavelenghtData(wavelength).data(cycle, :);
             if nargin > 3
@@ -176,6 +189,30 @@ classdef TimeSeriesData
             data = tsd.getData(wavelength, s);
         end
         
+        % search for the number of a sample with a given name
+        function n = getSampleNumber(tsd, name)
+            n = 0;
+            for i = 1:length(tsd.samples)
+                if strcmp(name, tsd.samples(i).name)
+                    n = i;
+                    return;
+                end;
+            end;
+        end;
+        
+        % search for the column number that corresponds to a well
+        function n = findColumnNumber(tsd, well)
+            n = 0;
+            for i = 1:length(tsd.map)
+                if strcmp(well, tsd.map{i})
+                    n = i;
+                    return;
+                end;
+            end;
+        end;
+        
+        
+        %%%%%%%%%% Data correction functions
         
         % do blank correction using median over entire blak replicates
         function tsd = performBlankCorrection(tsd, blankName)
@@ -299,6 +336,10 @@ classdef TimeSeriesData
             end
         end;
         
+        
+        %%%%%%%%%% Plotting functions
+        
+        
         % plot the time series of the median for a given sample
         function h = plotMedian(tsd, wavelength, sampleNumber)
             times = tsd.getTimes(wavelength);
@@ -359,7 +400,7 @@ classdef TimeSeriesData
         
         
         % plots OD and GFP in the same plot, normalized by the entire
-        % sample
+        % sample (assumes OD is wavelength 1 and GFP is wavelength 2)
         function plotNormalizedODAndGFP(tsd, sampleNumber)
             %
             odData = (tsd.getData(1, sampleNumber));
@@ -400,6 +441,7 @@ classdef TimeSeriesData
         
         % plots three wavelengths in the same plot, normalized by the entire
         % sample. the example here is for od, gfp and pyoverdine
+        % (assumes OD is wavelength 1, GFP is wavelength 2 and pyoverdine is 3)
         function plotThreeWavelengths(tsd, sampleNumber)
             % od (first wavelength)
             odData = (tsd.getData(1, sampleNumber));
@@ -439,6 +481,9 @@ classdef TimeSeriesData
         
         % plot sample numbers provided in a vector with ranges
         % and add legend
+        % last argument (rangeFlag) is optional:
+        %  rangeFlag = true (default) plots ranges as thin lines
+        %  rangeFlag = false plots only the median
         function plotManySamples(tsd, wavelength, sampleNumbers, rangeFlag)
             % construct a colormap
             labels = [];
@@ -467,7 +512,7 @@ classdef TimeSeriesData
         % plot wavelength w2 over wavelength w2 Medians
         % for sample s Kerry's code
         function h = plotW1OverW2Median(tsd, w1, w2, s)
-
+            
             times = tsd.getTimes(w1);
             d1 = tsd.getData(w1, s);
             d2 = tsd.getData(w2, s);
@@ -475,30 +520,28 @@ classdef TimeSeriesData
             MedOv = median(Ov, 2);
             h = plot(times(1,1:length(d1)), MedOv, '-', 'LineWidth', 2);
             xlabel('Time[h]');
-
-%             ylabel([tsd.wavelenghtData(w1).name '/'...
-%                 tsd.wavelenghtData(w2).name]);
-%            ylabel(tsd.wavelenghtData(w1).name);
-
-        end; 
-
+            ylabel([tsd.wavelenghtData(w1).name '/'...
+                tsd.wavelenghtData(w2).name]);
+            
+        end;
+        
         % same as plotW1OverW2Median but works with array
         % of samples Kerry's code
         function plotW1OverW2MedianMany(tsd, w1, w2, samples)
-
+            
             % construct a colormap
             labels = [];
             cmap = jet(length(samples));
-
+            
             for i = 1:length(samples)
                 hold on;
                 h = tsd.plotW1OverW2Median(w1, w2, samples(i));
                 set(h, 'Color', cmap(i, :));
                 labels{end+1} = tsd.samples(samples(i)).name;
             end;
-
+            
             legend(labels, 'Location', 'Best');
-
+            
         end
         
         % plot wavelength w2 as function of wavelength w2
@@ -525,7 +568,7 @@ classdef TimeSeriesData
             end;
             legend(labels, 'Location', 'Best');
         end
-
+        
         % plts the specific growth rate time series
         function h = plotSpecificGrowthW1(tsd, w1, s)
             d1 = tsd.getData(w1, s);
@@ -594,7 +637,6 @@ classdef TimeSeriesData
             legend(labels, 'Location', 'SouthEast');
         end
         
-        
         % plot sample numbers provided in a vector with ranges
         % and add legend
         function plotManySamplesWithArea(tsd, wavelength, sampleNumbers)
@@ -619,35 +661,25 @@ classdef TimeSeriesData
         end;
         
         % plot a matrix representing data from a plate
+        % use flagForSmall if plate has water all around
         function plotMatrix(tsd, wavelength, cycleNumber, column, line,...
-                iOrders)
-            if nargin > 5
-                matrix2Plot =...
-                    tsd.getPlateMatrix(wavelength, cycleNumber, iOrders);                
+                flagForSurface, iOrders, flagForSmall)
+            if nargin > 6
+                if flagForSmall
+                    matrix2Plot =...
+                        tsd.getPlateMatrixSmall(wavelength, cycleNumber, iOrders);
+                else
+                    matrix2Plot =...
+                        tsd.getPlateMatrix(wavelength, cycleNumber, iOrders);
+                end
             else
                 matrix2Plot = tsd.getPlateMatrix(wavelength, cycleNumber);
             end
-            imagesc(matrix2Plot);
-            times = tsd.getTimes(wavelength);
-            title(sprintf('%s at %0.1f h',...
-                tsd.wavelenghtData(wavelength).name,...
-                times(cycleNumber)));
-            colorbar;
-            set(gca, 'XTick', 1:size(matrix2Plot, 2),...
-                'XTickLabel', line);
-            set(gca, 'YTick', 1:size(matrix2Plot, 1),...
-                'YTickLabel', column);
-        end;
-
-        function plotMatrixSmall(tsd, wavelength, cycleNumber, column,...
-                line, iOrders)
-            if nargin > 5
-                matrix2Plot =...
-                    tsd.getPlateMatrixSmall(wavelength, cycleNumber, iOrders);                
+            if flagForSurface
+                surf(matrix2Plot);
             else
-                matrix2Plot = tsd.getPlateMatrix(wavelength, cycleNumber);
+                imagesc(matrix2Plot);
             end
-            imagesc(matrix2Plot);
             times = tsd.getTimes(wavelength);
             title(sprintf('%s at %0.1f h',...
                 tsd.wavelenghtData(wavelength).name,...
@@ -659,116 +691,7 @@ classdef TimeSeriesData
                 'YTickLabel', column);
         end;
         
-        % plot a surface plot representing data from a plate
-        function plotSurface(tsd, wavelength, cycleNumber, column, line, iOrders)
-            if nargin > 5
-                matrix2Plot =...
-                    tsd.getPlateMatrix(wavelength, cycleNumber, iOrders);                
-            else
-                matrix2Plot = tsd.getPlateMatrix(wavelength, cycleNumber);
-            end
-            surf(matrix2Plot);
-            times = tsd.getTimes(wavelength);
-            title(sprintf('%s at %0.1f h',...
-                tsd.wavelenghtData(wavelength).name,...
-                times(cycleNumber)));
-            colorbar;
-            set(gca, 'XTick', 1:size(matrix2Plot, 2),...
-                'XTickLabel', line);
-            set(gca, 'YTick', 1:size(matrix2Plot, 1),...
-                'YTickLabel', column);
-        end;
-
-        function plotSurfaceSmall(tsd, wavelength, cycleNumber, column,...
-                line, iOrders)
-            if nargin > 5
-                matrix2Plot =...
-                    tsd.getPlateMatrixSmall(wavelength, cycleNumber, iOrders);                
-            else
-                matrix2Plot = tsd.getPlateMatrix(wavelength, cycleNumber);
-            end
-            surf(matrix2Plot);
-            times = tsd.getTimes(wavelength);
-            title(sprintf('%s at %0.1f h',...
-                tsd.wavelenghtData(wavelength).name,...
-                times(cycleNumber)));
-            colorbar;
-            set(gca, 'XTick', 1:size(matrix2Plot, 2),...
-                'XTickLabel', line);
-            set(gca, 'YTick', 1:size(matrix2Plot, 1),...
-                'YTickLabel', column);
-        end;        
-        
-        % plot OD and GFP in the same plot foer every well in a plate
-        function plotTimeSeriesMatrix(tsd)
-            % od (first wavelength)
-            odData = tsd.wavelenghtData(1).data;
-            odData(odData <= 0) = NaN;
-            odData = log10(odData);
-            maxVal = max(odData(~isnan(odData)));
-            %minVal = min(odData(~isnan(odData)));
-            minVal = -2;
-            odData = (odData - minVal) ./ (maxVal - minVal);
-            % gfp (second wavelength)
-            gfpData = tsd.wavelenghtData(2).data;
-            gfpData(gfpData <= 0) = NaN;
-            %gfpData = log10(gfpData);
-            maxVal = max(gfpData(~isnan(gfpData)));
-            %minVal = min(gfpData(~isnan(gfpData)));
-            minVal = 1;
-            gfpData = (gfpData - minVal) ./ (maxVal - minVal);
-            % time
-            times = tsd.getTimes(1);
-            maxTime = max(times(~isnan(times)));
-            minTime = min(times(~isnan(times)));
-            k = 0;
-            for j = 1:12,
-                for i = 1:8,
-                    k = k + 1;
-                    subplot(8, 12, (i-1)*12 + j);
-                    plot(times,...
-                        odData(:, k),...
-                        'k',...
-                        'LineWidth', 1.5);
-                    hold on;
-                    plot(tsd.getTimes(2),...
-                        gfpData(:, k),...
-                        'g',...
-                        'Color', [0 0.8 0],...
-                        'LineWidth', 1.5);
-                    hold off;
-                    set(gca, 'YLim', [0 1],...
-                        'XLim', [minTime maxTime],...
-                        'YTickLabel', [],...
-                        'Color', 'none',...
-                        'LineWidth', 1.5);
-                end;
-            end;
-        end;
-        
-        
-        
-        % search for the number of a sample with a given name
-        function n = getSampleNumber(tsd, name)
-            n = 0;
-            for i = 1:length(tsd.samples)
-                if strcmp(name, tsd.samples(i).name)
-                    n = i;
-                    return;
-                end;
-            end;
-        end;
-        
-        % search for the column number that corresponds to a well
-        function n = findColumnNumber(tsd, well)
-            n = 0;
-            for i = 1:length(tsd.map)
-                if strcmp(well, tsd.map{i})
-                    n = i;
-                    return;
-                end;
-            end;
-        end;
+        %%%%%%%%%% Growth curve synchronization functions
         
         % find the array of time delays between sample 'referenceSample'
         % and the samples in array sampleNumbers
@@ -803,7 +726,7 @@ classdef TimeSeriesData
                 end
             end
         end
-
+        
         % calulate a total error of overlap for a given array of delays
         function errorVal = computeErrorMatrix(tsd,...
                 wavelength, sampleNumbers, tauArray)
@@ -824,34 +747,42 @@ classdef TimeSeriesData
         end
         
         
-        % calculate an array of delays by minimizing the 
+        % calculate an array of delays by minimizing the
         % total error of overlap between each pair of curves
         function tauArray = optimizeTauArray(tsd,...
                 wavelength, sampleNumbers)
             tauArray = tsd.computeTimeDelays(wavelength,...
                 sampleNumbers(1), sampleNumbers(2:end));
             fToMin =...
-                @(tauArray)...
+                @(x)...
                 (computeErrorMatrix(tsd,...
-                wavelength, sampleNumbers, tauArray));
+                wavelength, sampleNumbers, x));
             tauArray = fminsearch(fToMin, tauArray);
-
-        end
-        
-
-        function phaseTimes = getPhaseTimes(tsd)
-            phaseTimes = tsd.phaseTimes;
-        end
-        
-        function tsd = setPhaseTimes(tsd, phaseTimes)
-            tsd.phaseTimes = phaseTimes;
+            
         end
         
         
+        %%%%%%%%%% Growth phase analysis
+        function tsd = setPhaseTimes(tsd, samples, phaseTimes)
+            if (length(samples) ~= size(phaseTimes, 2))
+                error(...
+                    'length of "samples" must match number of columns in "phaseTimes"');
+            end
+            % initialize phaseTimes
+            if isempty(tsd.phaseTimes)
+                tsd.phaseTimes = zeros(3, length(tsd.samples));
+            end
+            % set the phase time
+            for i = 1:length(samples)
+                tsd.phaseTimes(:, samples(i)) = phaseTimes(:, i);
+            end;
+        end
         
-        function plotGrowthPhase (tsd, wavelength, sampleNumber, timeRangeMax)
+        
+        
+        function plotGrowthPhase (tsd, wavelength, samples, timeRangeMax, logFlag)
             % Construct a colormap for the 3 phases
-            cmap = jet(12); %3 phases * 3 strains - DONT COMPARE WITHIN STRAINS 8/1/13 TO DO - FIX THIS
+            cmap = jet(length(samples)); %3 phases * 3 strains - DONT COMPARE WITHIN STRAINS 8/1/13 TO DO - FIX THIS
             % strainNum = ceil(sampleNumber/4);
             
             % Setup figure to plot d(wavelength data)/dt, where dt = 10 min
@@ -863,103 +794,53 @@ classdef TimeSeriesData
             % First element is where phase 1 starts, second element is where phase 2 starts
             % phaseTimes = [14.5 21.75 26.25]; %8/1/13 - based on Hilary's growth curve with glucose and cbra mutant 7/29/13
             % phaseTimes = [12, 18];
-
-            phaseTimes = tsd.getPhaseTimes;
-            phaseTimes = phaseTimes(1,:);
-            
-            timeData = tsd.getTimes(wavelength);
-            sampleData = tsd.getData(wavelength, sampleNumber);
-            timeData = timeData(1:length(sampleData));
-            deltaT = (timeData(2)-timeData(1)); %This is a slight approximation
-            medianData = median(sampleData,2);
-            filteredMedianData = tsd.filterData(medianData);
-            logData = log(filteredMedianData);
-            
-            c = ones(length(timeData)-1,3)*cmap(sampleNumber,:)';
-            
-            %preallocation of phaseMatrix
-            phase = zeros(1,length(timeData));
-            
-            phase(timeData < timeRangeMax) = 3;
-            phase(timeData < phaseTimes(3)) = 2;
-            phase(timeData < phaseTimes(2)) = 1;
-            phase(timeData < phaseTimes(1)) = 0;
-                        
-            totalDataPts = nnz(phase);
-            phase = phase(phase>0);
-            
-            %calculate the change in gfp
-            filteredMedianDData = zeros(1, totalDataPts);
-            
-            if wavelength == 1 
-                filteredMedianDData = diff(logData(1:totalDataPts))/deltaT;
-            else 
-                filteredMedianDData = diff(filteredMedianData(1:totalDataPts))/deltaT;
+            xshift = linspace(-0.3, 0.3, length(samples));
+            if length(samples) > 1
+                deltax = xshift(2) - xshift(1);
+            else
+                deltax = 0.1;
             end
-            
-            phase = phase + .05 + rand(size(phase))*0.1;
-            
-            scatter(phase(2:end)', filteredMedianDData', 40, 'blue', 'LineWidth', 1.5)% 'MarkerEdgeColor', c)
+            for i = 1:length(samples)
+                phaseTimes = tsd.phaseTimes(:, samples(i));
+                
+                timeData = tsd.getTimes(wavelength);
+                sampleData = tsd.getData(wavelength, samples(i));
+                timeData = timeData(1:length(sampleData));
+                deltaT = (timeData(2)-timeData(1)); %This is a slight approximation
+                medianData = median(sampleData,2);
+                filteredMedianData = tsd.filterData(medianData);
+                logData = log(filteredMedianData);
+                                
+                %preallocation of phaseMatrix
+                phase = zeros(1,length(timeData));
+                
+                phase(timeData < timeRangeMax) = 3;
+                phase(timeData < phaseTimes(3)) = 2;
+                phase(timeData < phaseTimes(2)) = 1;
+                phase(timeData < phaseTimes(1)) = 0;
+                
+                
+                %calculate the change in gfp               
+                if logFlag == true
+                    filteredMedianDData = [0; diff(logData)/deltaT];
+                else
+                    filteredMedianDData =...
+                        [0; diff(filteredMedianData)/deltaT];
+                end
+                
+                phaseR = phase + xshift(i) + rand(size(phase))*deltax/2;
+                
+                scatter(phaseR(phase>0)', filteredMedianDData(phase>0)', 40,...
+                    cmap(i, :), 'LineWidth', 1.5)% 'MarkerEdgeColor', c)
+                hold on;
+            end
+            hold off;
             xlabel('Phase')
-            ylabel(strcat('d(',char(tsd.wavelenghtData(wavelength).name),')/dt'))
+            ylabel(strcat('d(',char(tsd.wavelenghtData(wavelength).name),')/dt'));
         end
         
-        function plotGrowthPhase2 (tsd, wavelength, sampleNumber, timeRangeMax)
-            % Construct a colormap for the 3 phases
-            cmap = jet(12); %3 phases * 3 strains - DONT COMPARE WITHIN STRAINS 8/1/13 TO DO - FIX THIS
-%             strainNum = ceil(sampleNumber/4);
-            
-            % Setup figure to plot d(wavelength data)/dt, where dt = 10 min
-            % = 1/6 hrs
-            % Use phaseTimes (a 1x3 matrix) to determine where to split the
-            % wavelength data into 4 segments (3 phases + lag phase). Plot each of the 3 segments
-            
-            % Hardcoding phaseTimes 
-            % First element is where phase 1 starts, second element is where phase 2 starts
-%             phaseTimes = [14.5 21.75 26.25]; %8/1/13 - based on Hilary's growth curve with glucose and cbra mutant 7/29/13
-%             phaseTimes = [12, 18];
-
-            phaseTimes = tsd.getPhaseTimes;
-            phaseTimes = phaseTimes(1,:);
-            
-            timeData = tsd.getTimes(wavelength);
-            sampleData = tsd.getData(wavelength, sampleNumber);
-            timeData = timeData(1:length(sampleData));
-            deltaT = (timeData(2)-timeData(1));
-            medianData = median(sampleData,2);
-            filteredMedianData = tsd.filterData(medianData);
-            logData = log(filteredMedianData);
-            
-            c = ones(length(timeData)-1,3)*cmap(sampleNumber,:)';
-            
-            %preallocation of phaseMatrix
-            phase = zeros(1,length(timeData));
-            
-            phase(timeData < timeRangeMax) = 3;
-            phase(timeData < phaseTimes(3)) = 2;
-            phase(timeData < phaseTimes(2)) = 1;
-            phase(timeData < phaseTimes(1)) = 0;
-                        
-            totalDataPts = nnz(phase);
-            phase = phase(phase>0);
-            
-            %calculate the change in gfp
-            filteredMedianDData = zeros(1, totalDataPts);%zeros(1,length(filteredMedianData));
-            
-            if wavelength == 1 
-                filteredMedianDData = diff(logData(1:totalDataPts))/deltaT;
-            else 
-                filteredMedianDData = diff(filteredMedianData(1:totalDataPts))/deltaT;
-            end
-            
-            phase = phase - .05 - rand(size(phase))*0.1;
-            
-            scatter(phase(2:end)', filteredMedianDData', 40, 'cyan', 'LineWidth', 1.5)% 'MarkerEdgeColor', c)
-            xlabel('Phase')
-            ylabel(strcat('d(',char(tsd.wavelenghtData(wavelength).name),')/dt'))
-        end
+        %%%%%%%%%% Autofluorescence correction
         
-
         %Correct for autofluorescence in GFP Data for NON-LAGGED DATA
         function autoFluoroData = correctAutoFluoro(tsd, tArray, autoFsamples, sampleNumbers)
             
@@ -980,7 +861,7 @@ classdef TimeSeriesData
             end
             
             autoFluoroData = cGfpInterp(:, sampleNumbers)-cGfpInterp(:, autoFsamples);
-
+            
         end
         
         % USE FOR GFP DATA FOR LAGGED SAMPLES, creates new TSD instance
@@ -996,8 +877,9 @@ classdef TimeSeriesData
             end
             
             
-           
+            
         end
+        
         % USE FOR GFP WITH LAGGED SAMPLES
         function autoFluoroData = correctAutoFOneSample(tsd, tArray, timehours, autoFsample, sampleNumber)
             cGfpInterp = zeros(length(tArray),1);
@@ -1005,7 +887,7 @@ classdef TimeSeriesData
             
             cGfpMedian = median(tsd.getData(2, autoFsample), 2); %This is the WT data
             GfpDataToCorrect = tsd.getData(2, sampleNumber); %This data is what needs correcting
-            cGfpInterp = interp1(timehours, cGfpMedian, tArray)'; 
+            cGfpInterp = interp1(timehours, cGfpMedian, tArray)';
             
             %preallocation
             numWells = min(size(GfpDataToCorrect));
@@ -1017,6 +899,9 @@ classdef TimeSeriesData
             
         end
         
+        %%%%%%%%%% Lag correction
+        
+        
         function setLagTimes(tsd, lagTimes)
             tsd.lagTimes = lagTimes;
         end
@@ -1026,7 +911,7 @@ classdef TimeSeriesData
         end
         
         function tsd = autoLag(tsd,wavelength,sampleNumbers)
-           
+            
             %Step 1 - find the first time each of the median samples comes
             %above a threshold .01 (if wavelength ==1) or threshold xx if gfp
             lag = tsd.computeLag(wavelength,sampleNumbers);
@@ -1038,7 +923,7 @@ classdef TimeSeriesData
         end
         
         function lag = computeLag(tsd,wavelength,sampleNumbers)
-            % structure of output matrix lag = 
+            % structure of output matrix lag =
             % [sample_1 od, sample2 od, ..., sample_n od]
             % [sample_1 t , sample2 t , ..., sample_n t ]
             % [sample_1 t-index, ..., sample_n t-index]
@@ -1065,8 +950,8 @@ classdef TimeSeriesData
                     end
                 end
             end
-%             lag(3,:)
-%             tsd.setLagTimes = lag(3,:);
+            %             lag(3,:)
+            %             tsd.setLagTimes = lag(3,:);
             
         end
         
@@ -1076,11 +961,6 @@ classdef TimeSeriesData
             tsd.samples(sampleNumber).wavelength(wavelength).data = [];
             tsd.samples(sampleNumber).wavelength(wavelength).data = data;
         end
-        
-%         % get the matrix lagged data for a sample number
-%         function lagData = getLagData(tsd, wavelength, sampleNumber)
-%             lagData = tsd.samples(sampleNumber).wavelength(wavelength).Data;
-%         end
         
         function tsd = lagShift(tsd,wavelength,sampleNumbers,lag)
             % Output: an instance of TimeSeriesData with shifted datasets
@@ -1097,7 +977,7 @@ classdef TimeSeriesData
                 %Want to transform the matrix without eliminating data
                 currentData = tsd.getData(wavelength,sampleNumbers(i));
                 currentGfp = tsd.getData(2,sampleNumbers(i));
-
+                
                 %set the data to only the data >= the lag data
                 tsd = tsd.setData(wavelength, sampleNumbers(i),...
                     currentData(tau:end,:));
@@ -1110,12 +990,12 @@ classdef TimeSeriesData
         function tsd = onePointShift(tsd, sampleNumbers)
             for i = 1:length(sampleNumbers)
                 %Create a matrix of starting indicies in the Times matrix
-                tau = 2*ones(1,length(sampleNumbers)); 
+                tau = 2*ones(1,length(sampleNumbers));
                 
                 %Want to transform the matrix without eliminating data
                 currentData = tsd.getData(1,sampleNumbers(i));
                 currentGfp = tsd.getData(2,sampleNumbers(i));
-
+                
                 %set the data to only the data >= the first point
                 tsd = tsd.setData(1, sampleNumbers(i),...
                     currentData(tau:end,:));
@@ -1190,12 +1070,6 @@ classdef TimeSeriesData
             dFiltered = filter(ones(1,windowSize)/windowSize,1,d, [], 1);
         end
         
-        % another method to noise out of data
-        function dFiltered = filterData2(d)
-            xxx
-            
-        end
-        
         % calculate specific growth rate of a wavelength
         function r = calculateSpecificRate(time, data)
             % get the number of replicates
@@ -1238,7 +1112,7 @@ classdef TimeSeriesData
             v = (ref - otherInterp).^2;
             err = sum(v);
         end;
-
+        
         
         function str = num2strRound(n, i)
             
