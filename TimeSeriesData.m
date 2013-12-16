@@ -237,6 +237,7 @@ classdef TimeSeriesData
             tsd = tsd.updateSampleData;
         end
         
+        
         % do blank correction but take as correction the same line in
         % the blank sample rather than median over entire blak replicates
         % This function has two ways to be used used.
@@ -253,14 +254,23 @@ classdef TimeSeriesData
             for w = 1:length(tsd.wavelenghtData)
                 % get the blankData
                 blankData = tsd.getDataFromName(w, blankName);
-                % get median accross replicates
-                blankData = median(blankData, 2);
-                % subtract that from all data
+                % get the number of blank sample
+                blankSample = tsd.getSampleNumber(blankName);
+                % subtract blanks from data, line by line
                 for s = samples,
                     % get the data
                     data =  tsd.samples(s).wavelength(w).data;
+                    sampleWells = tsd.samples(s).wells;
                     for i = 1:size(data, 2)
-                        data(:, i) =  data(:, i) - blankData;
+                        sampleWell = sampleWells{i};
+                        % find line in sample that corresponds to this
+                        % line (first well name matches)
+                        matching = strfind(tsd.samples(blankSample).wells,...
+                            sampleWell(1));
+                        matches = not(cellfun(@isempty, matching));
+                        % calculate median of blanks in the same line                        
+                        data(:, i) =  data(:, i) -...
+                            median(blankData(:, matches), 2);
                     end;
                     % rewrite the variable
                     tsd.samples(s).wavelength(w).data = data;
