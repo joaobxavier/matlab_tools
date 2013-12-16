@@ -297,18 +297,23 @@ classdef TimeSeriesData
         end
         
         % do blank correction taking as background the first 10 point
-        function tsd = performBlankCorrection10Points(tsd)
+        function tsd = performBlankCorrection10Points(tsd, samples)
+            if (nargin == 1)
+                samples = 1:length(tsd.samples);
+            end;
             % do correction for all wavelengths
             for w = 1:length(tsd.wavelenghtData)
-                % get the data
-                data =  tsd.wavelenghtData(w).data;
-                % define the blankData
-                blankData = median(data(1:10, :), 1);
-                blankData = repmat(blankData, size(data, 1), 1);
-                % subtract
-                data =  data - blankData;
-                % rewrite the variable
-                tsd.wavelenghtData(w).data = data;
+                for s = samples
+                    % get the data
+                    data =  tsd.samples(s).wavelength(w).data;
+                    % define the blankData
+                    blankData = median(data(1:10, :), 1);
+                    blankData = repmat(blankData, size(data, 1), 1);
+                    % subtract
+                    data =  data - blankData;
+                    % rewrite the variable
+                    tsd.samples(s).wavelength(w).data = data;
+                end
             end
             tsd = tsd.updateSampleData;
         end
