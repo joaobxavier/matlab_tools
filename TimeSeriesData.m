@@ -3,7 +3,7 @@ classdef TimeSeriesData
     % time series data
     %
     % DON'T FORGET TO UPDATE THE VERSION TAG
-    % Updated January 13 by Hilary
+    % Updated January 13, 2014 by Hilary
     
     % properties
     properties (SetAccess = protected)
@@ -237,6 +237,7 @@ classdef TimeSeriesData
             tsd = tsd.updateSampleData;
         end
         
+        
         % do blank correction but take as correction the same line in
         % the blank sample rather than median over entire blak replicates
         % This function has two ways to be used used.
@@ -255,7 +256,7 @@ classdef TimeSeriesData
                 blankData = tsd.getDataFromName(w, blankName);
                 % get the number of blank sample
                 blankSample = tsd.getSampleNumber(blankName);
-                % subtract that from all data
+                % subtract blanks from data, line by line
                 for s = samples,
                     % get the data
                     data =  tsd.samples(s).wavelength(w).data;
@@ -265,11 +266,11 @@ classdef TimeSeriesData
                         % find line in sample that corresponds to this
                         % line (first well name matches)
                         matching = strfind(tsd.samples(blankSample).wells,...
-                                   sampleWell(1));
+                            sampleWell(1));
                         matches = not(cellfun(@isempty, matching));
                         % calculate median of blanks in the same line                        
                         data(:, i) =  data(:, i) -...
-                                      median(blankData(:, matches), 2);
+                            median(blankData(:, matches), 2);
                     end;
                     % rewrite the variable
                     tsd.samples(s).wavelength(w).data = data;
@@ -334,8 +335,7 @@ classdef TimeSeriesData
             % do correction for all wavelengths
             for w = 1:length(tsd.wavelenghtData)
                 time = tsd.getTimes(w);
-%                 indexValid = find( and(time>tau, time<(time(end)-tau)) );
-                indexValid = find(time>tau);
+                indexValid = find( and(time>tau, time<(time(end)-tau)) );
                 % correct all samples in array
                 for s = samples,
                     % get the data
@@ -499,7 +499,7 @@ classdef TimeSeriesData
         % last argument (rangeFlag) is optional:
         %  rangeFlag = true (default) plots ranges as thin lines
         %  rangeFlag = false plots only the median
-        function h = plotManySamples(tsd, wavelength, sampleNumbers, rangeFlag)
+        function plotManySamples(tsd, wavelength, sampleNumbers, rangeFlag)
             % construct a colormap
             labels = [];
             cmap = jet(length(sampleNumbers));
@@ -881,6 +881,7 @@ classdef TimeSeriesData
             tsd = tsd.updateSampleData;
         end
         
+        
         function tsd = performAuto380(tsd, sample, od380w, gfpw)
             % get the od380 data
             od380Rep = median(tsd.getData(od380w, sample),2);
@@ -889,7 +890,6 @@ classdef TimeSeriesData
             myAutoData380 = od380Rep*auto380(1)+auto380(2);
             % get the gfp data
             gfpData = tsd.getData(gfpw, sample);
-            %need an interp here? *****
             % subtract that from all data
             for i = 1:size(gfpData, 2)
                 gfpData(:, i) =  gfpData(:, i) - myAutoData380;
@@ -979,7 +979,8 @@ classdef TimeSeriesData
                 lag(1,i) = medianData(validPoints(1));
                 lag(2,i) = times(validPoints(1));
                 lag(3,i) = validPoints(1); %track the index
-             end
+
+            end
         end
         
         
