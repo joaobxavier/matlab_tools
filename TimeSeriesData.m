@@ -253,14 +253,23 @@ classdef TimeSeriesData
             for w = 1:length(tsd.wavelenghtData)
                 % get the blankData
                 blankData = tsd.getDataFromName(w, blankName);
-                % get median accross replicates
-                blankData = median(blankData, 2);
+                % get the number of blank sample
+                blankSample = tsd.getSampleNumber(blankName);
                 % subtract that from all data
                 for s = samples,
                     % get the data
                     data =  tsd.samples(s).wavelength(w).data;
+                    sampleWells = tsd.samples(s).wells;
                     for i = 1:size(data, 2)
-                        data(:, i) =  data(:, i) - blankData;
+                        sampleWell = sampleWells{i};
+                        % find line in sample that corresponds to this
+                        % line (first well name matches)
+                        matching = strfind(tsd.samples(blankSample).wells,...
+                                   sampleWell(1));
+                        matches = not(cellfun(@isempty, matching));
+                        % calculate median of blanks in the same line                        
+                        data(:, i) =  data(:, i) -...
+                                      median(blankData(:, matches), 2);
                     end;
                     % rewrite the variable
                     tsd.samples(s).wavelength(w).data = data;
@@ -287,18 +296,23 @@ classdef TimeSeriesData
         end
         
         % do blank correction taking as background the first 10 point
-        function tsd = performBlankCorrection10Points(tsd)
+        function tsd = performBlankCorrection10Points(tsd, samples)
+            if (nargin == 1)
+                samples = 1:length(tsd.samples);
+            end;
             % do correction for all wavelengths
             for w = 1:length(tsd.wavelenghtData)
-                % get the data
-                data =  tsd.wavelenghtData(w).data;
-                % define the blankData
-                blankData = median(data(1:10, :), 1);
-                blankData = repmat(blankData, size(data, 1), 1);
-                % subtract
-                data =  data - blankData;
-                % rewrite the variable
-                tsd.wavelenghtData(w).data = data;
+                for s = samples
+                    % get the data
+                    data =  tsd.samples(s).wavelength(w).data;
+                    % define the blankData
+                    blankData = median(data(1:10, :), 1);
+                    blankData = repmat(blankData, size(data, 1), 1);
+                    % subtract
+                    data =  data - blankData;
+                    % rewrite the variable
+                    tsd.samples(s).wavelength(w).data = data;
+                end
             end
             tsd = tsd.updateSampleData;
         end
