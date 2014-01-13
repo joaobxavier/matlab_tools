@@ -3,7 +3,7 @@ classdef TimeSeriesData
     % time series data
     %
     % DON'T FORGET TO UPDATE THE VERSION TAG
-    % Updated Novrmber 22 by Joao and Hilary
+    % Updated January 13 by Hilary
     
     % properties
     properties (SetAccess = protected)
