@@ -485,7 +485,7 @@ classdef TimeSeriesData
         % last argument (rangeFlag) is optional:
         %  rangeFlag = true (default) plots ranges as thin lines
         %  rangeFlag = false plots only the median
-        function plotManySamples(tsd, wavelength, sampleNumbers, rangeFlag)
+        function h = plotManySamples(tsd, wavelength, sampleNumbers, rangeFlag)
             % construct a colormap
             labels = [];
             cmap = jet(length(sampleNumbers));
@@ -867,9 +867,27 @@ classdef TimeSeriesData
             tsd = tsd.updateSampleData;
         end
         
+        function tsd = performAuto380(tsd, sample, od380w, gfpw)
+            % get the od380 data
+            od380Rep = median(tsd.getData(od380w, sample),2);
+            auto380 = 10^3*[1.0480 0.0491]; %robust for the 12092013 dataset
+            % create the auto correction data (median only)
+            myAutoData380 = od380Rep*auto380(1)+auto380(2);
+            % get the gfp data
+            gfpData = tsd.getData(gfpw, sample);
+            %need an interp here? *****
+            % subtract that from all data
+            for i = 1:size(gfpData, 2)
+                gfpData(:, i) =  gfpData(:, i) - myAutoData380;
+            end;
+            % rewrite the variable
+            tsd.samples(sample).wavelength(gfpw).data = gfpData;
+            tsd = tsd.updateSampleData;
+        end
+        
         
         % runs performAutoCorrection for many samples
-        % length of "samples"must be multiple of length of "autoSamples"
+        % length of "samples" must be multiple of length of "autoSamples"
         function tsd = performAutoCorrectionManySamples(tsd, autoSamples, samples, w)
             if mod(length(samples), length(autoSamples)) ~= 0
                 error('length of "samples" must be multiple of length of "autoSamples"');
@@ -877,6 +895,21 @@ classdef TimeSeriesData
             for i = 1:length(samples)
                 tsd = tsd.performAutoCorrection(autoSamples(mod(i-1, length(autoSamples))+1),...
                     samples(i), w);
+            end
+        end
+        
+        % runs performAuto380 for many samples
+        % length of "samples" must be multiple of length of "autoSamples"
+        function tsd = performAuto380ManySamples(tsd, samples, od380w, gfpw)
+            if nargin < 5
+                gfpw = 3;
+                if nargin < 4
+                    od380w = 2;
+                end
+            end
+            
+            for i = 1:length(samples)
+                tsd = tsd.performAuto380(samples(i), od380w, gfpw);
             end
         end
         
@@ -932,9 +965,7 @@ classdef TimeSeriesData
                 lag(1,i) = medianData(validPoints(1));
                 lag(2,i) = times(validPoints(1));
                 lag(3,i) = validPoints(1); %track the index
-                lag
-
-            end
+             end
         end
         
         
