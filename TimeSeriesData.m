@@ -899,6 +899,22 @@ classdef TimeSeriesData
             tsd = tsd.updateSampleData;
         end
         
+        function tsd = performAuto600Log(tsd, sample, od600w, gfpw)
+            % get the od600 data
+            od600Rep = median(tsd.getData(od600w, sample),2);
+            auto600 = [8.2034, 0.9734];
+            % create the auto correction data (median only)
+            myAutoData600 = exp(auto600(1) + log(od600Rep) * auto600(2));
+            % get the gfp data
+            gfpData = tsd.getData(gfpw, sample);
+            % subtract that from all data
+            for i = 1:size(gfpData, 2)
+                gfpData(:, i) =  gfpData(:, i) - myAutoData600;
+            end;
+            % rewrite the variable
+            tsd.samples(sample).wavelength(gfpw).data = gfpData;
+            tsd = tsd.updateSampleData;
+        end
         
         % runs performAutoCorrection for many samples
         % length of "samples" must be multiple of length of "autoSamples"
@@ -924,6 +940,19 @@ classdef TimeSeriesData
             
             for i = 1:length(samples)
                 tsd = tsd.performAuto380(samples(i), od380w, gfpw);
+            end
+        end
+        
+        function tsd = performAuto600ManySamplesLog(tsd, samples, od600w, gfpw)
+            if nargin < 4
+                gfpw = length(tsd.samples(samples(1)).wavelength);
+                if nargin < 3
+                    od600w = 1;
+                end
+            end
+            
+            for i = 1:length(samples)
+                tsd = tsd.performAuto600Log(samples(i), od600w, gfpw);
             end
         end
         
